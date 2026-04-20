@@ -1005,60 +1005,75 @@ int open_clientfd(char *hostname, char *port) {
 /* $end open_clientfd */
 
 /*  
- * open_listenfd - Open and return a listening socket on port. This
- *     function is reentrant and protocol-independent.
+ * open_listenfd - Open and return a listening socket on port. (주어진 포트 번호로 서버용 리스닝 소켓 생성)
+ *                 This function is reentrant and protocol-independent.
  *
  *     On error, returns: 
  *       -2 for getaddrinfo error
  *       -1 with errno set for other errors.
  */
 /* $begin open_listenfd */
-int open_listenfd(char *port) 
-{
-    struct addrinfo hints, *listp, *p;
-    int listenfd, rc, optval=1;
+int open_listenfd(char* port) {
+	struct addrinfo hints; // getaddrinfo에 넘길 주소 검색 조건
+	struct addrinfo* listp; // 조건에 맞는 주소 후보 연결 리스트의 시작점
+	struct addrinfo* p; // 순회 포인터
 
-    /* Get a list of potential server addresses */
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_socktype = SOCK_STREAM;             /* Accept connections */
-    hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG; /* ... on any IP address */
-    hints.ai_flags |= AI_NUMERICSERV;            /* ... using port number */
-    if ((rc = getaddrinfo(NULL, port, &hints, &listp)) != 0) {
-        fprintf(stderr, "getaddrinfo failed (port %s): %s\n", port, gai_strerror(rc));
-        return -2;
-    }
+	int listenfd; // 생성한 서버 소켓의 fd
+	int rc; // getaddrinfo 반환 코드
+	int optval = 1; // SO_REUSEADDR 옵션을 켜기 위한 값
 
-    /* Walk the list for one that we can bind to */
-    for (p = listp; p; p = p->ai_next) {
-        /* Create a socket descriptor */
-        if ((listenfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0) 
-            continue;  /* Socket failed, try the next */
+	memset(&hints, 0, sizeof(hints));
 
-        /* Eliminates "Address already in use" error from bind */
-        setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,    //line:netp:csapp:setsockopt
-                   (const void *)&optval , sizeof(int));
+	hints.ai_socktype = SOCK_STREAM;
 
-        /* Bind the descriptor to the address */
-        if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0)
-            break; /* Success */
-        if (close(listenfd) < 0) { /* Bind failed, try the next */
-            fprintf(stderr, "open_listenfd close failed: %s\n", strerror(errno));
-            return -1;
-        }
-    }
+    /*  AI_PASSIVE: 시스템이 자동으로 와일드카드 IP 주소(0.0.0.0 또는 ::)를 할당하게 만듦 (모든 인터페이스 수신 가능)
+                    특정 IP 주소를 지정하지 않고 와일드카드 주소를 사용하게 되므로, 
+                    서버는 컴퓨터에 연결된 모든 네트워크 인터페이스(LAN, Wi-Fi 등)를 통해 들어오는 접속을 기다릴 수 있다  */
+	hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG;
+	hints.ai_flags |= AI_NUMERICSERV;
 
+	rc = getaddrinfo(NULL, port, &hints, &listp); // 첫 번째 인자 NULL은 원격 호스트가 아니라 현재 머신 쪽 주소를 이용해 가능한 목록을 구하겠다는 의미
 
-    /* Clean up */
-    freeaddrinfo(listp);
-    if (!p) /* No address worked */
+	if (rc != 0) { // getaddrinfo 오류 발생시
+		fprintf(stderr, "getaddrinfo failed (port %s): %s\n", port, gai_strerror(rc));
+		return -2;
+	}
+
+	// 후보 리스트에서 하나씩 소켓 생성해서 연결(사용) 가능한 주소 찾기
+	for (p = listp; p != NULL; p = p->ai_next) {
+        /* 소켓 생성 */
+		listenfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+
+		if (listenfd < 0) 
+            continue; // 소켓 생성 실패 시 다음 후보 시도
+
+		// setsockopt: 네트워크 프로그래밍에서 생성된 소켓의 속성(옵션)을 변경하기 위해 사용하는 함수
+        // SO_REUSEADDR: 이미 사용 중인 IP 주소와 포트 번호를 재사용할 수 있게 해주는 소켓 옵션
+		setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&optval, sizeof(int));
+
+		if (bind(listenfd, p->ai_addr, p->ai_addrlen) == 0) // bind에 성공한 경우
+            break; // 더 이상 탐색 종료
+
+		if (close(listenfd) < 0) { //bind에 실패한 소켓은 종료
+            //종료 실패시 오류 출력 후 -1 반환
+			fprintf(stderr, "open_listenfd close failed: %s\n", strerror(errno));
+			return -1;
+		}
+	}
+
+    // getaddrinfo가 할당한 주소 후보 목록 메모리 해제
+	freeaddrinfo(listp);
+
+	if (p == NULL) // 모든 주소 후보에서 소켓을 생성하지 못한 경우 -1 반환
         return -1;
 
-    /* Make it a listening socket ready to accept connection requests */
-    if (listen(listenfd, LISTENQ) < 0) {
-        close(listenfd);
-	return -1;
-    }
-    return listenfd;
+	if (listen(listenfd, LISTENQ) < 0) { // 소켓을 리스닝 상태로 전환 / 버퍼 크기: LISTENQ
+		// 리스닝 상태 전환에 실패한 경우 소켓 close 후 -1 반환
+        close(listenfd); 
+		return -1;
+	}
+
+	return listenfd; // 리스닝 소켓 fd 반환 (accept로 연결을 받을 수 있는 fd)
 }
 /* $end open_listenfd */
 
