@@ -1,0 +1,8 @@
+{
+  "C_Cpp.default.compilerPath": "/usr/bin/gcc",
+  "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+  "C_Cpp.default.cStandard": "gnu17",
+  "C_Cpp.default.defines": [
+    "_POSIX_C_SOURCE=200809L"
+  ]
+}
