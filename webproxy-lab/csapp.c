@@ -948,40 +948,59 @@ ssize_t Rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)
  */
 /* $begin open_clientfd */
 int open_clientfd(char *hostname, char *port) {
-    int clientfd, rc;
-    struct addrinfo hints, *listp, *p;
+    int clientfd, rc; // 사용가능한 소켓의 fd, Return Code를 담을 변수 각각 선언
+    /* Return Code(rc)란? 주로 시스템 콜이나 네트워크 함수의 실행 결과를 담는 데 사용. */
+    
+    /* 선언하는 addrinfo 구조체 변수의 의미
+     * hints: getaddrinfo가 참고할 옵션
+     * 
+     *     p: 순회 포인터
+    */
+    struct addrinfo hints; // getaddrinfo가 참고할 옵션
+    struct addrinfo *listp; // 주소 후보 리스트
+    struct addrinfo *p; // listp 순회 포인터
 
-    /* Get a list of potential server addresses */
-    memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_socktype = SOCK_STREAM;  /* Open a connection */
-    hints.ai_flags = AI_NUMERICSERV;  /* ... using a numeric port arg. */
-    hints.ai_flags |= AI_ADDRCONFIG;  /* Recommended for connections */
-    if ((rc = getaddrinfo(hostname, port, &hints, &listp)) != 0) {
-        fprintf(stderr, "getaddrinfo failed (%s:%s): %s\n", hostname, port, gai_strerror(rc));
-        return -2;
-    }
-  
-    /* Walk the list for one that we can successfully connect to */
-    for (p = listp; p; p = p->ai_next) {
-        /* Create a socket descriptor */
-        if ((clientfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0) 
-            continue; /* Socket failed, try the next */
+    memset(&hints, 0, sizeof(hints)); // hints 구조체를 0으로 초기화
+    hints.ai_socktype = SOCK_STREAM; // 소켓 타입은 Stream Socket(TCP 프로토콜)으로 설정
+    /* cf. Datagram Socket은 UDP 또는 기본 IP 프로토콜을 기반으로 하는 소켓 */
+    hints.ai_flags = AI_NUMERICSERV; // getaddrinfo가 함수로 전달되는 문자열은 port 번호임을 지정 (지정이 안되면 http, ssh 등으로 작성할 수 있음) 
+    hints.ai_flags |= AI_ADDRCONFIG; // 현재 시스템 주소 구성(IPv4 or IPv6)을 반영하는 플래그 추가
 
-        /* Connect to the server */
-        if (connect(clientfd, p->ai_addr, p->ai_addrlen) != -1) 
-            break; /* Success */
-        if (close(clientfd) < 0) { /* Connect failed, try another */  //line:netp:openclientfd:closefd
-            fprintf(stderr, "open_clientfd: close failed: %s\n", strerror(errno));
-            return -1;
-        } 
-    } 
+    rc = getaddrinfo(hostname, port, &hints, &listp); // 연결 후보 주소 리스트 조회
 
-    /* Clean up */
-    freeaddrinfo(listp);
-    if (!p) /* All connects failed */
-        return -1;
-    else    /* The last connect succeeded */
-        return clientfd;
+	if (rc != 0) { // 주소 문자열을 소켓 주소 후보로 바꾸는 단계(getaddrinfo) 실패
+		fprintf(stderr, "getaddrinfo failed (%s:%s): %s\n", hostname, port, gai_strerror(rc));
+        return -2; // -2 for getaddrinfo error
+	}
+
+    // 주소 후보를 앞에서부터 순서대로 연결 시도
+	p = listp;
+	while (p != NULL) {
+        // 현재 후보에 맞는 소켓 생성
+		clientfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+
+		if (clientfd < 0) { // 해당 주소 후보는 소켓 연결 불가 (실패)
+			p = p->ai_next;
+			continue;
+		}
+
+		if (connect(clientfd, p->ai_addr, p->ai_addrlen) != -1)	 // 연결 성공 (connect: Return 0 on success, -1 for errors.)
+			break;
+
+		if (close(clientfd) < 0) {	// 연결 실패 소켓 정리
+			/* close 실패 시 즉시 -1 반환, 성공 시 다음 후보 시도 */
+			freeaddrinfo(listp);
+			return -1;
+		}
+		p = p->ai_next;
+	}
+
+	freeaddrinfo(listp); // 주소 후보 리스트 메모리 해제
+
+	if (p == NULL) 
+        return -1; // 연결에 성공한 주소 후보가 없으면 실패 처리
+    
+    return clientfd; // 연결에 성공한 소켓 fd 반환
 }
 /* $end open_clientfd */
 
@@ -1065,7 +1084,6 @@ int Open_listenfd(char *port)
 }
 
 /* $end csapp.c */
-
 
 
 
