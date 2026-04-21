@@ -1,15 +1,17 @@
 #include "csapp.h"
 
-// 표준입력 한 줄씩 서버에 보내고 응답을 그대로 출력하는 에코 클라이언트 진입점
-// argc: 프로그램 이름을 포함한 명령행 인자 개수
-// argv: argv[1]은 서버 호스트 이름, argv[2]는 숫자 포트 문자열
-// 반환: 정상 종료 시 0
+/* 표준입력 한 줄씩 서버에 보내고 응답을 그대로 출력하는 에코 클라이언트 진입점
+ * argc: 프로그램 이름을 포함한 명령행 인자 개수
+ * argv: argv[1]은 서버 호스트 이름, argv[2]는 숫자 포트 문자열
+ * 반환: 정상 종료 시 0
+ */
 
-// lower-case open_clientfd로 연결 실패 코드를 직접 확인하고
-// Rio_readinitb로 읽기 상태를 소켓에 초기화한 뒤
-// Rio_writen과 Rio_readlineb로 요청과 응답을 반복하는 흐름
-int main(int argc, char **argv)
-{
+/* lower-case open_clientfd로 연결 실패 코드를 직접 확인하고
+ * Rio_readinitb로 읽기 상태를 소켓에 초기화한 뒤
+ * Rio_writen과 Rio_readlineb로 요청과 응답을 반복하는 흐름
+ */
+
+int main(int argc, char **argv) {
     int clientfd; // 서버와 연결된 TCP 소켓 디스크립터
 
     char *host; // 서버 이름 또는 IP 문자열
