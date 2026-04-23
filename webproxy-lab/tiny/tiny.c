@@ -141,3 +141,27 @@ int parse_uri(char* uri, char* filename, char* cgiargs) {
   strcat(filename, uri);
   return 0;
 }
+
+void serve_static(int fd, char* filename, int filesize) {
+  int srcfd;
+  char* srcp;
+  char filetype[MAXLINE], buf[MAXLINE];
+  int len = 0;
+
+  get_filetype(filename, filetype);
+
+  len += snprintf(buf+len, MAXBUF-len, "HTTP/1.0 200 OK\r\n");
+  len += snprintf(buf+len, MAXBUF-len, "Server: Tiny Web Server\r\n");
+  len += snprintf(buf+len, MAXBUF-len, "Connection: close\r\n");
+  len += snprintf(buf+len, MAXBUF-len, "Content-length: %d\r\n", filesize);
+  len += snprintf(buf+len, MAXBUF-len, "Content-type: %s\r\n\r\n", filetype);
+
+  Rio_writen(fd, buf, len);
+
+  srcfd = Open(filename, O_RDONLY, 0);
+  srcp = Mmap(0, filesize, PROT_READ, MAP_PRIVATE, srcfd, 0);
+  Close(srcfd);
+
+  Rio_writen(fd, srcp, filesize);
+  Munmap(srcp, filesize);
+}
