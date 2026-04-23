@@ -165,3 +165,20 @@ void serve_static(int fd, char* filename, int filesize) {
   Rio_writen(fd, srcp, filesize);
   Munmap(srcp, filesize);
 }
+
+void serve_dynamic(int fd, char* filename, char* cgiargs) {
+	char buf[MAXLINE], *emptylist[] = {NULL};
+  int len = 0;
+
+  len += snprintf(buf+len, MAXLINE-len, "HTTP/1.0 200 OK\r\n");
+  len += snprintf(buf + len, MAXLINE - len, "Server: Tiny Web Server\r\n");
+  Rio_writen(fd, buf, len);
+
+  if(Fork() == 0) {
+    setenv("QUERY_STRING", cgiargs, 1);
+    Dup2(fd, STDOUT_FILENO);
+    Execve(filename, emptylist, environ);
+  }
+
+  Wait(NULL);
+}
