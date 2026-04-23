@@ -111,3 +111,33 @@ void read_requesthdrs(rio_t* rp) {
 	}
 	return;
 }
+
+int parse_uri(char* uri, char* filename, char* cgiargs) {
+  char* ptr;
+
+  // 정적
+  if (!strstr(uri, "cgi-bin")) {
+	  strcpy(cgiargs, "");
+	  strcpy(filename, ".");
+	  strcat(filename, uri);
+
+	  if (uri[strlen(uri) - 1] == '/') {
+		  strcat(filename, "home.html");
+	  }
+
+    return 1;
+  }
+
+  // 동적
+  ptr = strchr(uri, '?');
+  if (ptr != NULL) {
+	  strcpy(cgiargs, ptr + 1);
+	  *ptr = '\0';
+  } else {
+	  strcpy(cgiargs, "");
+  }
+
+  strcpy(filename, ".");
+  strcat(filename, uri);
+  return 0;
+}
