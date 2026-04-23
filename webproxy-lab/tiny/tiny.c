@@ -168,17 +168,30 @@ void serve_static(int fd, char* filename, int filesize) {
 
 void serve_dynamic(int fd, char* filename, char* cgiargs) {
 	char buf[MAXLINE], *emptylist[] = {NULL};
-  int len = 0;
+	int len = 0;
 
-  len += snprintf(buf+len, MAXLINE-len, "HTTP/1.0 200 OK\r\n");
-  len += snprintf(buf + len, MAXLINE - len, "Server: Tiny Web Server\r\n");
-  Rio_writen(fd, buf, len);
+	len += snprintf(buf + len, MAXLINE - len, "HTTP/1.0 200 OK\r\n");
+	len += snprintf(buf + len, MAXLINE - len, "Server: Tiny Web Server\r\n");
+	Rio_writen(fd, buf, len);
 
-  if(Fork() == 0) {
-    setenv("QUERY_STRING", cgiargs, 1);
-    Dup2(fd, STDOUT_FILENO);
-    Execve(filename, emptylist, environ);
-  }
+	if (Fork() == 0) {
+		setenv("QUERY_STRING", cgiargs, 1);
+		Dup2(fd, STDOUT_FILENO);
+		Execve(filename, emptylist, environ);
+	}
 
-  Wait(NULL);
+	Wait(NULL);
+}
+
+void get_filetype(char* filename, char* filetype) {
+	if (strstr(filename, ".html"))
+		strcpy(filetype, "text/html");
+	else if (strstr(filename, ".gif"))
+		strcpy(filetype, "image/gif");
+	else if (strstr(filename, ".png"))
+		strcpy(filetype, "image/png");
+	else if (strstr(filename, ".jpg"))
+		strcpy(filetype, "image/jpeg");
+	else
+		strcpy(filetype, "text/plain");
 }
