@@ -73,7 +73,7 @@ void doit(int fd) {
     return;
   }
 
-  // 첫 줄 이후 헤더는 내용 해석 없이 빈 줄이 나올 때까지 소비
+  // 헤더 내용은 해석하지 않고 빈 줄이 나올 때까지 입력만 비움
   read_requesthdrs(&rio);
 
   // URI를 로컬 파일 경로로 바꾸고 정적/동적 요청 여부 판단
@@ -95,7 +95,7 @@ void doit(int fd) {
   }
 
   else {
-	  // 현재 구현은 CGI 대상도 일반 파일 여부와 소유자 읽기 비트를 기준으로 먼저 거름
+	  // 현재 예제는 CGI도 실행 비트 대신 S_ISREG와 S_IRUSR만 확인하는 단순화된 검사 사용
 	  if (!(S_ISREG(sbuf.st_mode)) || !(S_IRUSR & sbuf.st_mode)) {
 		  clienterror(fd, filename, "403", "Forbidden", "Tiny couldn’t run the CGI program");
 		  return;
@@ -133,7 +133,7 @@ void clienterror(int fd, char* cause, char* errnum, char* shortmsg, char* longms
 }
 
 /* 요청라인 뒤에 이어지는 헤더를 빈 줄이 나올 때까지 읽음
- * 읽은 값은 화면에 출력만 하고 요청 처리 판단에는 쓰지 않음
+ * 헤더 값은 의미 해석 없이 소비하고 현재 구현의 요청 처리 분기에는 쓰지 않음
  * rp: 이미 소켓과 연결된 RIO 입력 상태
  * 반환: 없음
  */

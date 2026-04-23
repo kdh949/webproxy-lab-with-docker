@@ -7,7 +7,8 @@
 
 /* QUERY_STRING에서 두 수를 꺼내 합을 계산하고 HTML 응답을 표준출력으로 생성
  * 전제: 호출한 웹 서버가 표준출력을 클라이언트 소켓에 연결한 상태
- * 전제: QUERY_STRING이 '&'로 나뉜 두 토큰이며 각 토큰이 '=' 뒤 숫자를 포함한 상태
+ * 전제: getenv("QUERY_STRING") 결과가 NULL이 아니고 '&'와 '='를 모두 포함한 상태
+ * 한계: 위 전제를 코드에서 검사하지 않으므로 형식이 다르면 아래 포인터 연산이 바로 실패 가능
  * 반환: 정상 종료 시 0
  */
 int main(void) {
@@ -15,7 +16,7 @@ int main(void) {
 	char arg1[MAXLINE], arg2[MAXLINE], content[MAXLINE]; // 분리한 두 토큰과 최종 HTML 본문 버퍼
 	int n1 = 0, n2 = 0; // 숫자로 변환한 두 피연산자. 파싱 전 기본값은 0
 
-	// QUERY_STRING을 '&' 기준으로 둘로 나눔
+	// getenv가 돌려준 환경 변수 버퍼를 직접 잘라 '&' 기준 두 토큰으로 분리
 	// 각 토큰에서는 '=' 뒤 숫자 부분만 정수로 변환
 	if ((buf = getenv("QUERY_STRING")) != NULL) {
 		p = strchr(buf, '&');
@@ -27,6 +28,7 @@ int main(void) {
 		n2 = atoi(strchr(arg2, '=') + 1);
 	}
 
+	// 아래 본문 생성은 buf가 유효하다는 전제를 그대로 사용
 	// 같은 버퍼 끝에 계속 이어 붙여 브라우저가 표시할 본문 생성
 	sprintf(content, "QUERY_STRING=%s\r\n<p>", buf);
 	sprintf(content + strlen(content), "Welcome to add.com: ");
